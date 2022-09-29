@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.05
 REGULARIZATION_FACTOR = 0.05
 N_FACTORS = 35
-N_EPOCHS = 8
+N_EPOCHS = 10
 
 MIN_RATING = 0
 MAX_RATING = 5
