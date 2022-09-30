@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-LEARNING_RATE = 0.0005
-REGULARIZATION_FACTOR = 0.03
-N_FACTORS = 20
-N_EPOCHS = 10
+LEARNING_RATE = 0.012
+REGULARIZATION_FACTOR = 0.01
+N_FACTORS = 5
+N_EPOCHS = 40
 
 MIN_RATING = 0
 MAX_RATING = 5
@@ -33,7 +33,7 @@ def generateMappedDataset(df, userMapping, itemMapping):
 
 # Esse método executa uma versão da ideia do SGD (Stochastic Gradient Descent)
 # para treino dos fatores latentes de usuários e itens.
-def getLatentFactors(training, globalMean):
+def getLatentFactors(training, validation, globalMean):
     np.random.seed(seed=13)
     userLatents = np.random.normal(0, .01, (len(np.unique(training[:, 0])), N_FACTORS))
     itemsLatents = np.random.normal(0, .01, (len(np.unique(training[:, 1])), N_FACTORS))
@@ -51,12 +51,16 @@ def getLatentFactors(training, globalMean):
             
             error = rating - prediction
 
+
             for factor in range(N_FACTORS):
                 userFactor = userLatents[user, factor]
                 itemFactor = itemsLatents[item, factor]
 
                 userLatents[user, factor] += LEARNING_RATE * (error * itemFactor - REGULARIZATION_FACTOR * userFactor)
                 itemsLatents[item, factor] += LEARNING_RATE * (error * userFactor - REGULARIZATION_FACTOR * itemFactor)
+
+        rmse = computeRMSE(validation, userLatents, itemsLatents, globalMean)
+        print(rmse)
 
     return userLatents, itemsLatents
 
@@ -90,21 +94,50 @@ def main():
     ratings_df = pd.read_csv('ratings.csv', encoding='latin-1', sep=',|:', engine='python')
     targets = pd.read_csv('targets.csv', sep=':', engine='python')
 
-    userMapping = generateMapping(ratings_df, 'UserId')
-    itemMapping = generateMapping(ratings_df, 'ItemId')
 
-    training = generateMappedDataset(ratings_df, userMapping, itemMapping)
+
+    training = ratings_df[['UserId', 'ItemId', 'Rating']].sample(frac=0.8, random_state=8)
+    validation = ratings_df.drop(training.index.tolist())
+    
+    userMapping = generateMapping(training, 'UserId')
+    itemMapping = generateMapping(training, 'ItemId')
+
+    training = generateMappedDataset(training, userMapping, itemMapping)
+    validation = generateMappedDataset(validation, userMapping, itemMapping)
+    
     targets = zip(targets['UserId'], targets['ItemId'])
 
     globalMean = np.mean(training[:, 2])
 
-    userLatents, itemLatents = getLatentFactors(training, globalMean)
+    userLatents, itemLatents = getLatentFactors(training, validation, globalMean)
 
     predictions = getPredicitons(targets, userMapping, itemMapping, globalMean, userLatents, itemLatents)
 
-    print('UserId:ItemId,Rating')
-    for user, item, pred in predictions:
-        print(str(user) + ":" + str(item) + "," + str(pred))
+    # print('UserId:ItemId,Rating')
+    # for user, item, pred in predictions:
+    #     print(str(user) + ":" + str(item) + "," + str(pred))
+
+
+
+def computeRMSE(validation, userLatents, itemLatents, globalMean):
+    error = []
+
+    for i in range(validation.shape[0]):
+        user = int(validation[i, 0])
+        item = int(validation[i, 1])
+        rating = validation[i, 2]
+        prediction = globalMean
+
+        if user > -1 and item > -1:
+            for factor in range(N_FACTORS):
+                prediction += userLatents[user, factor] * itemLatents[item, factor]
+
+        error.append(rating - prediction)
+        
+    error = np.array(error)
+    rmse = np.sqrt((np.power(error,2)).mean())
+
+    return rmse
 
 
 if __name__ == "__main__":
