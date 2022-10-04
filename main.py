@@ -1,23 +1,22 @@
+import sys
 import pandas as pd
 import numpy as np
 
-LEARNING_RATE = 0.0005
-REGULARIZATION_FACTOR = 0.03
-N_FACTORS = 20
-N_EPOCHS = 10
+LEARNING_RATE = 0.005
+REGULARIZATION_FACTOR = 0.008
+N_FACTORS = 4
+N_EPOCHS = 20
 
 MIN_RATING = 0
 MAX_RATING = 5
 
-# Esse método realiza o mapeamento de uma coluna do dataset para seu relativo indice
+# Maps a column of the dataset to its index
 def generateMapping(df, columnName):
     ids = df[columnName].unique().tolist()
     return dict(zip(ids, range(len(ids))))
 
 
-# Esse método gera um novo data set com as tuplas (usuário, item, nota) com 
-# os ids dos usuários e dos itens convertidos para seus respectivos índices
-# em número inteiro
+# Generate the tuples (user, item, rating)
 def generateMappedDataset(df, userMapping, itemMapping):
     copied = df.copy()
     copied['UserId'] = copied['UserId'].map(userMapping)
@@ -31,8 +30,8 @@ def generateMappedDataset(df, userMapping, itemMapping):
     return copied[['UserId', 'ItemId', 'Rating']].to_numpy()
 
 
-# Esse método executa uma versão da ideia do SGD (Stochastic Gradient Descent)
-# para treino dos fatores latentes de usuários e itens.
+# Run the SGD (Stochastic Gradient Descent) for training of the
+# latent factors of users and items
 def getLatentFactors(training, globalMean):
     np.random.seed(seed=13)
     userLatents = np.random.normal(0, .01, (len(np.unique(training[:, 0])), N_FACTORS))
@@ -61,9 +60,7 @@ def getLatentFactors(training, globalMean):
     return userLatents, itemsLatents
 
 
-# Após o aprendizado dos fatores latentes para as matrizes de usuários e
-# itens, esse método realiza a predição de notas para o dado conjunto de
-# targets.
+# Make the predictions of the targets based on the latent factors
 def getPredicitons(targets, userMapping, itemMapping, globalMean, userLatents, itemLatents):
     predictions = []
 
@@ -87,8 +84,13 @@ def getPredicitons(targets, userMapping, itemMapping, globalMean, userLatents, i
 
 
 def main():
-    ratings_df = pd.read_csv('ratings.csv', encoding='latin-1', sep=',|:', engine='python')
-    targets = pd.read_csv('targets.csv', sep=':', engine='python')
+
+    if len(sys.argv) != 3:
+        print("usage: python3 main.py ratings.csv targets.csv")
+        exit(1)
+    
+    ratings_df = pd.read_csv(sys.argv[1], encoding='latin-1', sep=',|:', engine='python')
+    targets = pd.read_csv(sys.argv[2], sep=':', engine='python')
 
     userMapping = generateMapping(ratings_df, 'UserId')
     itemMapping = generateMapping(ratings_df, 'ItemId')
